@@ -22,19 +22,19 @@ async def show(proxies):
 
 async def get_url(lst_of_proxy):
     url = 'https://prodoctorov.ru/ufa/ergoterapevt/'
-    type = 'socks5'
+    type_con = 'socks5'
     login = 'avVUbUv1'
     passw = 'kRfNYvKR'
     proxy_url = '194.87.121.175'
     port = '64147'
-    # connector = ProxyConnector.from_url(f'{type}://{login}:{passw}@{proxy_url}:{port}')
+    # connector = ProxyConnector.from_url(f'{type_con}://{login}:{passw}@{proxy_url}:{port}')
     for proxy in lst_of_proxy:
         try:
             logging.info(proxy)
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, proxy=proxy) as resp:
                     soup = BeautifulSoup(await resp.text(), 'html.parser')
-                    print(soup.prettify())
+                    print(soup.find('a', class_='b-header__logo-stat').text)
         except Exception as e:
             logging.error(e)
 

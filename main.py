@@ -1,63 +1,51 @@
 import asyncio
 import sys
 import random
+import time
 
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-from proxybroker import Broker
 import aiohttp
 from bs4 import BeautifulSoup
 from logg import ColoredFormatter
 import logging
+import pandas as pd
 from aiohttp_socks import ProxyConnector
+from urllib.error import HTTPError
+
 
 logging.basicConfig(level=logging.INFO,
                     handlers=[logging.StreamHandler()])
 logging.getLogger().handlers[0].setFormatter(ColoredFormatter())
 
 
-async def show(proxies):
-    lst = []
-    while True:
-        proxy = await proxies.get()
-        if proxy is None: break
-        lst.append(f'{list(proxy.types.keys())[0].lower()}://{proxy.host}:{proxy.port}')
-    return lst
+lst_of_correct_proxies = []
 
-
-async def get_url(lst_of_proxy):
+async def get_data_pro(proxy):
+    global lst_of_correct_proxies
     url = 'https://prodoctorov.ru/ufa/ergoterapevt/'
-    proxy = random.choice(lst_of_proxy)
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                             'AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/126.0.0.0 Safari/537.36'}
     try:
-        logging.info(proxy)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, proxy=proxy) as resp:
-                soup = BeautifulSoup(await resp.text(), 'html.parser')
-                logging.warning(f'Successful proxy: {proxy}')
-                print(soup.find('div', class_='b-header__logo-stat').text.strip())
-    except Exception as e:
-        logging.error(e, f'Failed proxy:  {proxy}')
-        lst_of_proxy.remove(proxy)
-        logging.info(f'length of proxy list: {len(lst_of_proxy)}')
-        await get_url(lst_of_proxy)
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            async with session.get(url, proxy=proxy, timeout=10, headers=headers) as response:
+                soup = BeautifulSoup(await response.text(), 'html.parser')
+                logging.info(f'Successfull proxy:  {proxy}')
+                lst_of_correct_proxies.append(proxy)
+    except:
+        pass
+
 
 
 async def main():
-    task = asyncio.gather(broker.find(types=['HTTP', 'HTTPS'], limit=5))
-    lst_of_proxy = await show(proxies)
-    while not task.done():
-        await asyncio.sleep(1)
-    await get_url(lst_of_proxy)
-
+    global lst_of_correct_proxies
+    lst_of_proxies = pd.read_csv('http.txt', header=None)[0].tolist()
+    correct_proxies = list(map(lambda proxy: 'http://'+proxy, lst_of_proxies))
+    await asyncio.gather(*(get_data_pro(proxy) for proxy in correct_proxies))
+    print(lst_of_correct_proxies)
+    print(len(lst_of_correct_proxies))
 
 if __name__ == '__main__':
-    proxies = asyncio.Queue()
-    broker = Broker(proxies)
-    task1 = asyncio.gather(main())
-
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(task1)
+    asyncio.run(main())
 
 
 # type_con = 'socks5'
